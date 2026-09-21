@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人才盘点九宫格 · 发码后台</title>
+<style>
+  :root{ --ok:#16a34a; --warn:#d97706; --trial:#64748b; --line:#e2e8f0; --bg:#f8fafc; --card:#fff; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:#0f172a;font-size:14px}
+  .top{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700}
+  .tag{font-size:12px;padding:2px 9px;border-radius:999px;background:#eef2ff;color:#4338ca;font-weight:600}
+  .spacer{flex:1}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .inp{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;min-width:120px}
+  .inp:focus{border-color:#6366f1}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600;color:#0f172a}
+  .btn:hover{background:#f1f5f9}
+  .btn.primary{background:var(--ok);border-color:var(--ok);color:#fff}
+  .btn.primary:hover{filter:brightness(.95)}
+  .btn.approve{background:#4338ca;border-color:#4338ca;color:#fff}
+  .btn.approve:hover{filter:brightness(.95)}
+  .btn.tiny{padding:5px 10px;font-size:12px}
+  .wrap{max-width:920px;margin:18px auto;padding:0 16px}
+  .conn-banner{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.6}
+  .conn-banner code{background:#fff;border:1px solid #fecaca;border-radius:5px;padding:1px 6px;font-family:Consolas,Menlo,monospace}
+  .stats{display:flex;gap:12px;margin:6px 0 16px}
+  .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat b{display:block;font-size:24px;line-height:1.1}
+  .stat span{color:var(--trial);font-size:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .card .hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .card .id{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;font-size:14px}
+  .badge{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:700}
+  .badge.pending{background:#fef3c7;color:var(--warn)}
+  .badge.approved{background:#dcfce7;color:var(--ok)}
+  .card .meta{color:var(--trial);font-size:12px;margin-left:auto}
+  .row{display:flex;gap:14px;flex-wrap:wrap;color:#334155;margin:3px 0}
+  .row .k{color:var(--trial);min-width:54px}
+  .tok{display:flex;gap:8px;align-items:center;margin-top:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:8px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+  .tok .t{flex:1}
+  .note{color:#475569;font-size:13px;margin:4px 0 0}
+  .empty{text-align:center;color:var(--trial);padding:48px 0}
+  .err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:13px}
+  .okmsg{background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:13px}
+  .hint{color:var(--trial);font-size:12px;margin:4px 0 0}
+  .sw{display:inline-flex;align-items:center;gap:6px;color:var(--trial);font-size:12px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>人才盘点九宫格 · 发码后台</h1>
+  <span class="tag" id="modeTag">…</span>
+  <div class="spacer"></div>
+  <div class="bar">
+    <input class="inp" id="tokenInp" placeholder="管理口令（生产环境）" style="width:200px" autocomplete="off">
+    <button class="btn tiny" onclick="saveToken()">保存口令</button>
+    <label class="sw"><input type="checkbox" id="autoChk" onchange="toggleAuto()"> 自动刷新(15s)</label>
+    <button class="btn primary" onclick="load()">🔄 重新连接</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><b id="stPend">0</b><span>待发码</span></div>
+    <div class="stat"><b id="stDone">0</b><span>已发码</span></div>
+    <div class="stat"><b id="stAll">0</b><span>累计登记</span></div>
+  </div>
+  <div id="msg"></div>
+  <div id="connBanner" class="conn-banner" style="display:none"></div>
+  <div id="list"></div>
+  <div class="empty" id="empty" style="display:none">暂无付款登记。用户扫码付款并在 App 内点击「我已付款·申请激活」后会出现在这里。</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let autoTimer=null;
+// 连接地址：若以 file:// 双击打开，或访问 localhost/127.0.0.1，则指向 http://127.0.0.1:8787（用 127.0.0.1 而非 localhost，避免 Windows 把 localhost 解析到 IPv6 ::1 而服务端只监听 IPv4 导致空响应）；否则用同源相对路径
+function api(p){ const h=location.hostname; const useProxy=(h==='localhost'||h==='127.0.0.1'||location.protocol==='file:'); return (useProxy?'http://127.0.0.1:8787':'')+p; }
+function setConn(ok, detail){ const b=$('connBanner'); if(ok){ b.style.display='none'; } else { b.style.display='block'; b.innerHTML=detail||'未连接服务端。请先双击「启动服务端.bat」并保持窗口打开，然后点「重新连接」。'; } }
+// 读取响应：先取文本，空体/非 JSON 给出明确错误，避免抛出 "Unexpected end of JSON input"
+async function readJson(res){
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const txt = await res.text();
+  if(!txt || !txt.trim()) throw new Error('空响应体（服务端可能未正常运行，或 8787 端口被其他程序占用）');
+  try { return JSON.parse(txt); } catch(e){ throw new Error('响应不是合法 JSON：'+txt.slice(0,80)); }
+}
+
+// 管理口令：生产环境需与服务器 .env 的 ADMIN_TOKEN 一致；DEMO 模式留空即可
+function getToken(){ return localStorage.getItem('tg9_admin_token')||''; }
+function saveToken(){ const v=$('tokenInp').value.trim(); localStorage.setItem('tg9_admin_token', v); flash(v?'已保存管理口令':'已清空口令'); load(); }
+$('tokenInp').value=getToken();
+
+function headers(){ const t=getToken(); const h={'Content-Type':'application/json'}; if(t) h['x-admin-token']=t; return h; }
+function flash(text, type){ $('msg').innerHTML=`<div class="${type||'okmsg'}">${text}</div>`; setTimeout(()=>{ if($('msg').innerText===text) $('msg').innerHTML=''; },2500); }
+
+async function load(){
+  $('modeTag').textContent='读取中…';
+  try{
+    const r=await fetch(api('/api/config'));
+    const c=await readJson(r);
+    $('modeTag').textContent = c.demo?'DEMO 模式':'生产模式';
+    setConn(true);
+  }catch(e){
+    $('modeTag').textContent='未连接';
+    setConn(false,'未连接服务端（'+e.message+'）。请确认：① 已双击「启动服务端.bat」并保持窗口打开；② 浏览器直接访问 <code>http://127.0.0.1:8787/api/config</code> 应看到一行 JSON。确认后点「重新连接」。');
+    return;
+  }
+  try{
+    const res=await fetch(api('/api/manual-pay-requests'),{headers:headers()});
+    if(res.status===403){ flash('需要管理口令（在右上角填入 .env 的 ADMIN_TOKEN）','err'); $('list').innerHTML=''; return; }
+    const data=await readJson(res);
+    render(data.requests||[]);
+  }catch(e){ flash('无法连接服务端：'+e.message,'err'); }
+}
+
+function render(list){
+  const pend=list.filter(x=>x.status!=='approved').length;
+  const done=list.filter(x=>x.status==='approved').length;
+  $('stPend').textContent=pend; $('stDone').textContent=done; $('stAll').textContent=list.length;
+  const box=$('list'); box.innerHTML='';
+  if(list.length===0){ $('empty').style.display='block'; return; } $('empty').style.display='none';
+  for(const x of list){ box.appendChild(card(x)); }
+}
+
+function card(x){
+  const el=document.createElement('div'); el.className='card';
+  const planName = x.plan==='demo'?'演示版(7天)':'正式版(1年)';
+  const time = new Date(x.createdAt).toLocaleString('zh-CN');
+  el.innerHTML=`
+    <div class="hd">
+      <span class="id">${x.id}</span>
+      <span class="badge ${x.status==='approved'?'approved':'pending'}">${x.status==='approved'?'已发码':'待发码'}</span>
+      <span class="meta">${time}</span>
+    </div>
+    <div class="row"><span class="k">方案</span><span>${planName}</span></div>
+    <div class="row"><span class="k">联系</span><span>${escapeHtml(x.contact)||'—'}</span></div>
+    ${x.note?`<div class="note">备注：${escapeHtml(x.note)}</div>`:''}
+  `;
+  if(x.status==='approved'){
+    const tok=document.createElement('div'); tok.className='tok';
+    const isEmail = x.contact && /@/.test(x.contact);
+    const mailTo = isEmail ? 'mailto:'+encodeURIComponent(x.contact)+'?subject='+encodeURIComponent('人才盘点九宫格·正式版激活码')+'&body='+encodeURIComponent('你的正式版激活码：\n'+x.token+'\n\n打开 App → 激活正式版 → 输入授权码 → 粘贴即可解锁。') : '';
+    tok.innerHTML=`<span class="t">${x.token}</span><button class="btn tiny primary" onclick="copyTok(this)">复制</button>`+(isEmail?`<a class="btn tiny" href="${mailTo}" style="margin-left:6px">📧 发邮件</a>`:'');
+    el.appendChild(tok);
+    if(x.approvedAt){ const a=document.createElement('div'); a.className='hint'; a.textContent='签发时间：'+new Date(x.approvedAt).toLocaleString('zh-CN'); el.appendChild(a); }
+    const hint2=document.createElement('div'); hint2.className='hint'; hint2.textContent='用户端会自动领取并激活；也可复制/发邮件手动发送。'; el.appendChild(hint2);
+  }else{
+    const b=document.createElement('button'); b.className='btn approve'; b.style.marginTop='10px';
+    b.textContent='✅ 审批发码';
+    b.onclick=()=>approve(x.id, b);
+    el.appendChild(b);
+  }
+  return el;
+}
+
+async function approve(id, btn){
+  btn.disabled=true; btn.textContent='签发中…';
+  try{
+    const res=await fetch(api('/api/manual-pay-approve'),{method:'POST',headers:headers(),body:JSON.stringify({id})});
+    const d=await readJson(res);
+    if(res.ok && d.ok){ flash('已签发激活码，用户端将自动领取激活'+(d.already?'（该登记此前已发过，返回原码）':''),'okmsg'); load(); }
+    else { flash('审批失败：'+(d.error||res.status),'err'); btn.disabled=false; btn.textContent='✅ 审批发码'; }
+  }catch(e){ flash('请求错误：'+e.message,'err'); btn.disabled=false; btn.textContent='✅ 审批发码'; }
+}
+
+function copyTok(btn){
+  const t=btn.parentElement.querySelector('.t').textContent.trim();
+  navigator.clipboard?.writeText(t).then(()=>{ const o=btn.textContent; btn.textContent='已复制'; setTimeout(()=>btn.textContent=o,1200); }, ()=>fallbackCopy(t,btn));
+}
+function fallbackCopy(t,btn){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); const o=btn.textContent; btn.textContent='已复制'; setTimeout(()=>btn.textContent=o,1200); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toggleAuto(){ if($('autoChk').checked){ autoTimer=setInterval(load,15000); } else { clearInterval(autoTimer); autoTimer=null; } }
+
+// 启动：先连一次；若未连上（服务端可能刚启动），最多重试 3 次（间隔 1.5s），仍失败则保持「重新连接」按钮
+let bootTries = 0;
+async function boot(){
+  bootTries++;
+  await load();
+  if ($('connBanner').style.display === 'block' && bootTries < 3) {
+    setTimeout(boot, 1500);
+  }
+}
+boot();
+</script>
+</body>
+</html>
