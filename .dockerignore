@@ -1,0 +1,17 @@
+keys/private.pem
+.env
+.env.*
+licenses.json
+crash.txt
+ready.txt
+*.result.txt
+claim_result.txt
+probe_min.txt
+e2e*.js
+client_extract.js
+probe_min.js
+verify_tiers.js
+node_modules
+.git
+Dockerfile
+.dockerignore
