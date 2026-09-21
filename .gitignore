@@ -1,0 +1,26 @@
+# ===== 密钥与敏感信息（绝不入库） =====
+keys/private.pem
+.env
+.env.local
+.env.*.local
+
+# ===== 运行时数据（含已签发授权令牌、邮箱） =====
+licenses.json
+
+# ===== 运行时日志 / 临时产物 =====
+crash.txt
+ready.txt
+*result.txt
+claim_result.txt
+probe_min.txt
+
+# ===== 测试 / 探针脚本（不随产品发布） =====
+e2e*.js
+client_extract.js
+probe_min.js
+verify_tiers.js
+
+# ===== 系统与依赖 =====
+.DS_Store
+node_modules
+npm-debug.log*
