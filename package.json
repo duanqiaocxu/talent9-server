@@ -1,0 +1,13 @@
+{
+  "name": "talent9-grid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "人才盘点九宫格 · 付费可视化工作台（Ed25519 授权 + 微信/Stripe 支付 + 钉钉/飞书免登）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
