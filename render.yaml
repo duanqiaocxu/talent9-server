@@ -1,0 +1,49 @@
+# Render Blueprint：连 GitHub 仓库一键部署
+# 文档：https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: talent9-grid
+    runtime: node
+    plan: free          # 免费层：约 15 分钟无流量会休眠，唤醒有数秒冷启动；绑定信用卡可解锁限制
+    region: oregon       # 可改 singapore / frankfurt 等
+    branch: main
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    healthCheckPath: "/api/config"
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        sync: false
+      - key: LICENSE_PRIVATE_KEY_PEM   # 必填：把本地 keys/private.pem 全文粘进来（含 -----BEGIN/END----- 整段）
+        sync: false
+      - key: ADMIN_TOKEN               # 必填：管理后台口令（生产务必设置，否则后台接口仅 DEMO 放行）
+        sync: false
+      - key: PUBLIC_BASE_URL           # 必填：你的公网地址，如 https://talent9-grid.onrender.com
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: WECHAT_MCH_ID
+        sync: false
+      - key: WECHAT_APP_ID
+        sync: false
+      - key: WECHAT_API_V3_KEY
+        sync: false
+      - key: WECHAT_SERIAL
+        sync: false
+      - key: WECHAT_PRIVATE_KEY_PATH
+        sync: false
+      - key: DINGTALK_APPKEY
+        sync: false
+      - key: DINGTALK_APPSECRET
+        sync: false
+      - key: DINGTALK_CORPID
+        sync: false
+      - key: DINGTALK_AGENTID
+        sync: false
+      - key: FEISHU_APP_ID
+        sync: false
+      - key: FEISHU_APP_SECRET
+        sync: false
